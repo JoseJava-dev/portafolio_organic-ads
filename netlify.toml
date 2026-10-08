@@ -1,5 +1,5 @@
 [build]
-  publish = ".output/public"
+  publish = "dist"
 
 [build.environment]
   NITRO_PRESET = "netlify"
@@ -9,4 +9,5 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
 
