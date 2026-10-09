@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { X, ExternalLink, Tag } from "lucide-react";
+import { X, ExternalLink, Tag, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
+  type CarouselApi,
 } from "@/components/ui/carousel";
 import {
   Dialog,
@@ -74,6 +75,9 @@ export function Cases() {
   const { isAdmin } = useAuth();
   const [selectedCase, setSelectedCase] = useState<CardItem | null>(null);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [totalSlides, setTotalSlides] = useState(0);
 
   const { data, isLoading } = useQuery({
     queryKey: ["cases", "public"],
@@ -81,6 +85,27 @@ export function Cases() {
   });
 
   const items: CardItem[] = (data?.length ?? 0) > 0 ? (data as CardItem[]) : demoCases;
+
+  useEffect(() => {
+    if (!carouselApi) return;
+
+    setTotalSlides(carouselApi.scrollSnapList().length);
+    setCurrentSlide(carouselApi.selectedScrollSnap());
+
+    const onSelect = () => {
+      setCurrentSlide(carouselApi.selectedScrollSnap());
+    };
+
+    carouselApi.on("select", onSelect);
+    carouselApi.on("reInit", () => {
+      setTotalSlides(carouselApi.scrollSnapList().length);
+      setCurrentSlide(carouselApi.selectedScrollSnap());
+    });
+
+    return () => {
+      carouselApi.off("select", onSelect);
+    };
+  }, [carouselApi]);
 
   function handleSelectCase(c: CardItem) {
     setSelectedCase(c);
@@ -122,8 +147,13 @@ export function Cases() {
 
         {isLoading && <p className="mt-10 text-sm text-muted-foreground">Cargando casos…</p>}
 
-        <Carousel opts={{ align: "start", loop: true }} className="mt-10">
-          <CarouselContent>
+        <div className="relative mt-10">
+          <Carousel
+            setApi={setCarouselApi}
+            opts={{ align: "start", loop: true }}
+            className="w-full"
+          >
+            <CarouselContent>
             {items.map((c) => (
               <CarouselItem key={c.id} className="sm:basis-1/2 lg:basis-1/3">
                 <button
@@ -190,7 +220,45 @@ export function Cases() {
           <CarouselPrevious className="hidden sm:flex" />
           <CarouselNext className="hidden sm:flex" />
         </Carousel>
+
+        {/* Mobile controls: arrows + indicators so it's immediately clear there are multiple projects */}
+        <div className="mt-5 flex items-center justify-between sm:hidden">
+          <button
+            type="button"
+            onClick={() => carouselApi?.scrollPrev()}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm active:scale-95 transition-all hover:bg-secondary"
+            aria-label="Proyecto anterior"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: totalSlides || items.length }).map((_, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => carouselApi?.scrollTo(idx)}
+                className={`h-2 rounded-full transition-all ${
+                  idx === currentSlide
+                    ? "w-6 bg-accent"
+                    : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                }`}
+                aria-label={`Ir al proyecto ${idx + 1}`}
+              />
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => carouselApi?.scrollNext()}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm active:scale-95 transition-all hover:bg-secondary"
+            aria-label="Siguiente proyecto"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
       </div>
+    </div>
 
       {/* Modal / Tarjeta desplegable con detalles del proyecto */}
       <Dialog open={!!selectedCase} onOpenChange={(open) => !open && setSelectedCase(null)}>
